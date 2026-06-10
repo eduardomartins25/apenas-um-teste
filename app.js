@@ -18,7 +18,7 @@ const RULES = {
         juizado: { rate: 100, maxMonths: 18, exito: { acordo: 1000, sentenca: 2000 } },
         comum: { rate: 150, maxMonths: 24, maxMonthsPericia: 36, exito: { acordo: 1250, acordoPericia: 1500, sentenca: 3000 } },
         estrategico: { proLabore: 10000, recursoTJ: 5000, recursoSTJ: 10000, agravo: 2500, reversao: 5000, exitoPct: 0.10, exitoMax: 50000 },
-        html: `<div class="rule-card"><div class="rule-name">A) Juizados</div><div class="rule-line"><strong>R$ 100</strong>/mês · Trava <strong>18m</strong></div><div class="rule-line">Acordo <strong>R$ 1.000</strong> · Sentença <strong>R$ 2.000</strong></div></div><div class="rule-card"><div class="rule-name">B) Comum s/ Perícia</div><div class="rule-line"><strong>R$ 150</strong>/mês · Trava <strong>24m</strong></div><div class="rule-line">Acordo <strong>R$ 1.250</strong> · Sentença <strong>R$ 3.000</strong></div></div><div class="rule-card"><div class="rule-name">B) Comum c/ Perícia</div><div class="rule-line"><strong>R$ 150</strong>/mês · Trava <strong>36m</strong></div><div class="rule-line">Acordo <strong>R$ 1.500</strong> · Sentença <strong>R$ 3.000</strong></div></div><div class="rule-card"><div class="rule-name">C) Estratégico</div><div class="rule-line">Agravo <strong>R$ 2.500</strong> · TJ/TRF <strong>R$ 5.000</strong></div><div class="rule-line">STJ <strong>R$ 10.000</strong> · Pró-Labore <strong>R$ 10.000</strong></div></div><div class="rule-card"><div class="rule-name">Exceções</div><div class="rule-line">PR: 12m s/ perícia · 24m c/ perícia</div><div class="rule-line">Cobrança/Sem Trava: R$ 0</div></div>`
+        html: `<div class="rule-card"><div class="rule-name">A) Juizados (JEC)</div><div class="rule-line">Sumaríssimo / Administrativo / Procon</div><div class="rule-line"><strong>R$ 100</strong>/mês · Trava <strong>18m</strong></div><div class="rule-line">Acordo <strong>R$ 1.000</strong> · Sentença <strong>R$ 2.000</strong></div></div><div class="rule-card"><div class="rule-name">B) Comum s/ Perícia</div><div class="rule-line">Ordinário/Comum/Especial</div><div class="rule-line"><strong>R$ 150</strong>/mês · Trava <strong>24m</strong></div><div class="rule-line">Acordo <strong>R$ 1.250</strong> · Sentença <strong>R$ 3.000</strong></div></div><div class="rule-card"><div class="rule-name">B) Comum c/ Perícia</div><div class="rule-line">+ Perícia · Trava <strong>36m</strong></div><div class="rule-line">Acordo <strong>R$ 1.500</strong> · Sentença <strong>R$ 3.000</strong></div></div><div class="rule-card"><div class="rule-name">C) Estratégico</div><div class="rule-line">Agravo <strong>R$ 2.500</strong> · TJ/TRF <strong>R$ 5.000</strong></div><div class="rule-line">STJ <strong>R$ 10.000</strong> · Pró-Labore <strong>R$ 10.000</strong></div></div><div class="rule-card"><div class="rule-name">Exceções</div><div class="rule-line">PR: 12m s/ perícia · 24m c/ perícia</div><div class="rule-line">Cobrança/Sem Trava: R$ 0</div></div>`
     },
     trabalhista: { label: 'Trabalhista', areaMatch: ['trabalhista'], html: '<div class="rule-card"><div class="rule-name">Trabalhista</div><div class="rule-line" style="color:var(--text-muted)">Regras a definir</div></div>' },
     tributario: { label: 'Tributário', areaMatch: ['tributario'], html: '<div class="rule-card"><div class="rule-name">Tributário</div><div class="rule-line" style="color:var(--text-muted)">Regras a definir</div></div>' }
@@ -84,13 +84,12 @@ function setupEvents() {
         document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
         const tab = btn.dataset.tab;
+        const panel = $('lancamentos-panel');
         if (tab === 'lancamentos') {
-            $('lancamentos-panel').style.display = 'flex';
-            $('table-wrapper').style.display = '';
+            if (panel) panel.style.display = 'block';
             renderTable('todos');
         } else {
-            $('lancamentos-panel').style.display = 'none';
-            $('table-wrapper').style.display = '';
+            if (panel) panel.style.display = 'none';
             renderTable(tab);
         }
     }));
@@ -184,7 +183,7 @@ function handleFileUpload(file, source) {
 
 // ==================== PROCESSING ====================
 function processAndReconcile() {
-    if (!bennerData || !currentSector) return;
+    if (!currentSector) return;
     allResults = [];
     const refDate = new Date(refYear, refMonth, 1);
 
@@ -199,7 +198,8 @@ function processAndReconcile() {
     const lancMap = new Map();
     lancamentos.forEach(l => { if (l.pasta) lancMap.set(l.pasta, l); });
 
-    bennerData.forEach(row => {
+    if (bennerData) {
+        bennerData.forEach(row => {
         const pasta = String(findCol(row, 'pasta') || '').trim();
         if (!pasta) return;
 
@@ -250,6 +250,35 @@ function processAndReconcile() {
         });
     });
 
+    }
+
+    // Add standalone lançamentos (no matching Benner row)
+    const usedPastas = new Set(allResults.map(i => i.chave));
+    lancamentos.forEach(l => {
+        if (!l.pasta || usedPastas.has(l.pasta)) return;
+        const total = l.naoCobrar ? 0 : ((l.valores || []).reduce((a, v) => a + v.valor, 0));
+        allResults.push({
+            chave: l.pasta, processo: l.pasta,
+            area: 'Lançamento', areaNorm: 'lançamento',
+            acao: '—', rito: '—',
+            situacao: '—',
+            advogado: '—',
+            empreendimento: '—',
+            spe: '—',
+            categoria: l.naoCobrar ? 'Não Cobrar' : 'Lançamento',
+            mensal: 0, exito: 0, bonus: total, total: total,
+            detalhe: l.obs || 'Lançamento manual',
+            calcDetail: { regras: { tipo: 'Lançamento', pericia: '—', mesesUsados: 0, mesesRestantes: 0, trava: 0, isPR: false }, descricao: l.obs || 'Lançamento manual' },
+            originalRow: {},
+            statusInfo: l.naoCobrar ? { label: 'Não Cobrar', cls: 'status-x' } : { label: 'Lançamento', cls: 'status-green' },
+            detection: 'manual',
+            edit: { obs: l.obs || '', bonus: total, naoCobrar: l.naoCobrar },
+            hasCompl: false, hasLanc: true,
+            travaDisplay: '—',
+            obsDisplay: l.obs || '—'
+        });
+    });
+
     $('empty-state').style.display = 'none'; $('btn-export').removeAttribute('disabled');
     updateRules(); renderTable(document.querySelector('.tab-btn.active').dataset.tab); updateSummary();
 }
@@ -262,20 +291,32 @@ function calcBilling(row, refDate, edit) {
     const tipoEnc = norm(findCol(row, 'tipo de encerramento'));
     const obj = norm(findCol(row, 'objeto principal'));
     const resumo = norm(findCol(row, 'resumo'));
+    const acao = norm(findCol(row, 'acao'));
     const cadDate = parseDateValue(findCol(row, 'data do cadastro'));
     const encDate = parseDateValue(findCol(row, 'data encerramento'));
     const regional = norm(findCol(row, 'regional'));
+    const obsText = norm(edit.obs || '');
+    const bennerObs = norm(findCol(row, 'observacao', 'obs', 'observação', 'motivo'));
+    const rowText = Object.values(row).map(v => norm(String(v || ''))).filter(Boolean).join(' ');
+    const allText = [obj, resumo, acao, bennerObs, rowText].filter(Boolean).join(' ');
 
     const z = (c, d, s, det) => ({ categoria: c, mensal: 0, exito: 0, bonus: 0, total: 0, descricao: d, regras: { tipo: 'N/A', pericia: '—', mesesUsados: 0, mesesRestantes: 0, trava: 0 }, statusInfo: s || { label: c, cls: 'status-gray' }, detection: det || 'auto' });
 
     if (edit.naoCobrar) return z('Não Cobrar', edit.obs || 'Não cobrar', { label: 'Não Cobrar', cls: 'status-x' }, 'manual');
     if (!area.includes('civel')) return z('Fora do Contrato', `Área: ${area}`, { label: 'Fora do Contrato', cls: 'status-gray' }, 'auto');
-    if (!nat.includes('judicial')) return z('Extrajudicial', 'Administrativo', { label: 'Extrajudicial', cls: 'status-blue' }, 'auto');
 
     const ritoNorm = norm(rito);
     const travaRaw = String(findCol(row, 'trava') || '').toLowerCase();
-    if (ritoNorm.includes('cobranca') || travaRaw.includes('cobranca') || travaRaw.includes('sem trava')) return z('Sem Cobrança', 'Cobrança', { label: 'Sem Cobrança', cls: 'status-gray' }, 'auto');
-    if (travaRaw.includes('proposta apartada')) return z('Proposta Apartada', 'Proposta Apartada', { label: 'Proposta Apartada', cls: 'status-gray' }, 'auto');
+    const isCobrancaObs = bennerObs === 'cobranca' || bennerObs.startsWith('cobranca ');
+    const isPropostaObs = bennerObs === 'proposta apartada' || bennerObs.startsWith('proposta apartada ');
+    if (ritoNorm.includes('cobranca') || isCobrancaObs || travaRaw.includes('cobranca') || travaRaw.includes('sem trava')) return z('Sem Cobrança', 'Cobrança', { label: 'Sem Cobrança', cls: 'status-gray' }, 'auto');
+    if (isPropostaObs || travaRaw.includes('proposta apartada')) return z('Proposta Apartada', 'Proposta Apartada', { label: 'Proposta Apartada', cls: 'status-gray' }, 'auto');
+
+    // Force JEC when Ação/BennerObs/Obs contains JEC or PROCON (overrides rito/natureza)
+    const forceJEC = acao.includes('procon') || bennerObs.includes('jec') || bennerObs.includes('procon') || obsText.includes('jec') || obsText.includes('procon');
+
+    // Extrajudicial: Administrativo sem JEC/PROCON = não cobrar
+    if (!nat.includes('judicial') && !forceJEC) return z('Extrajudicial', 'Administrativo', { label: 'Extrajudicial', cls: 'status-blue' }, 'auto');
 
     const isEncerrado = sit.includes('encerrado') || sit.includes('baixa');
     let mesesUsados = 0;
@@ -284,12 +325,14 @@ function calcBilling(row, refDate, edit) {
     const hasPericiaField = norm(findCol(row, 'classificacao', 'classificação')).includes('pericia');
     const hasPericiaText = [obj, resumo].some(t => t.includes('pericia') || t.includes('pericial') || t.includes('perito'));
     const hasPericia = edit.pericia !== undefined ? edit.pericia : (hasPericiaField || hasPericiaText);
-    const isPR = regional.includes('parana') || regional.includes('pr');
-    const isEstrategico = travaRaw.includes('estrategico') || norm(edit.obs).includes('estrategico');
+    const isPR = regional.includes('parana') || regional.includes('pr') || /\bpr\b/.test(obsText);
+    const isEstrategico = travaRaw.includes('estrategico') || obsText.includes('estrategico');
+    const isJ = ritoNorm.includes('sumarissimo') || ritoNorm.includes('sumario') || forceJEC;
+    const ritoConflict = !ritoNorm.includes('sumarissimo') && !ritoNorm.includes('sumario') && forceJEC;
+    const needsReview = allText.includes('duplicidade') || allText.includes('duplo') || allText.includes('erro de cadastro') || allText.includes('cadastro duplo') || allText.includes('confirmar rito') || allText.includes('aditivo') || obsText.includes('duplicidade') || obsText.includes('erro de cadastro') || obsText.includes('confirmar rito') || obsText.includes('aditivo');
 
     let trava = 0;
     const editTrava = edit.trava ? parseInt(edit.trava) : null;
-    const isJ = ritoNorm.includes('sumarissimo');
     if (editTrava) trava = editTrava;
     else if (isJ) trava = RULES.civel.juizado.maxMonths;
     else if (isPR) trava = hasPericia ? 24 : 12;
@@ -300,7 +343,9 @@ function calcBilling(row, refDate, edit) {
 
     let detection = 'auto';
     if (isEstrategico) detection = 'revisar';
-    else if (ritoNorm.includes('administrativo') && !isJ) detection = 'revisar';
+    else if (ritoConflict) detection = 'revisar';
+    else if (needsReview) detection = 'revisar';
+    else if (forceJEC && !nat.includes('judicial')) detection = 'revisar';
     if (edit.obs || edit.bonus || edit.naoCobrar) detection = 'manual';
 
     let statusInfo;
@@ -324,7 +369,6 @@ function calcBilling(row, refDate, edit) {
     }
 
     if (isEstrategico && !isEncerrado) {
-        const obsText = norm(edit.obs || '');
         const est = RULES.civel.estrategico;
         if (obsText.includes('agravo')) { bonus += est.agravo; d.push(`Agravo: ${formatBRL(est.agravo)}`); }
         if (obsText.includes('tj') || obsText.includes('trf')) { bonus += est.recursoTJ; d.push(`Recurso TJ/TRF: ${formatBRL(est.recursoTJ)}`); }
@@ -354,6 +398,7 @@ function getFiltered(tab) {
     const statusFilter = statusEl ? statusEl.value : '';
 
     return allResults.filter(i => {
+        if (i.areaNorm === 'lançamento') return true;
         if (!r.areaMatch.some(m => i.areaNorm.includes(m))) return false;
         if (tab === 'faturamento') { if (i.mensal <= 0 && i.bonus <= 0) return false; }
         else if (tab === 'divergencias') { if (i.detection !== 'revisar' && i.detection !== 'manual') return false; }
@@ -498,14 +543,19 @@ function loadLancamentos() { try { lancamentos = JSON.parse(localStorage.getItem
 function saveLancamentos() { localStorage.setItem('lancamentos', JSON.stringify(lancamentos)); renderLancamentos(); }
 
 function renderLancamentos() {
-    const empty = '<div class="lanc-empty">Nenhum lançamento</div>';
+    const totalGeral = lancamentos.reduce((a, l) => {
+        if (l.naoCobrar) return a;
+        return a + (l.valores || []).reduce((s, v) => s + v.valor, 0);
+    }, 0);
+
+    const empty = '<div class="lanc-empty">Nenhum lançamento. Clique em "+ Novo" para adicionar.</div>';
     const html = lancamentos.length ? lancamentos.map((l, i) => {
         const total = (l.valores || []).reduce((a, v) => a + v.valor, 0);
         const parts = (l.valores || []).map(v => v.desc ? `${v.desc} ${formatBRL(v.valor)}` : formatBRL(v.valor));
         const right = l.naoCobrar ? '<span class="lanc-nc">Não cobrar</span>' : (parts.length ? parts.join(' + ') : formatBRL(0));
         return `<div class="lanc-row">
             <span class="lanc-pasta">${l.pasta}</span>
-            <span class="lanc-obs">${l.obs || ''}</span>
+            <span class="lanc-obs" title="${l.obs || ''}">${l.obs || ''}</span>
             <span class="lanc-right">${right}</span>
             <button class="lanc-del" data-idx="${i}" title="Excluir">✕</button>
         </div>`;
@@ -521,23 +571,33 @@ function renderLancamentos() {
             showToast('info', 'Lançamento removido');
         }));
     });
+
+    const totalAdv = $('lanc-adv-total');
+    if (totalAdv) totalAdv.innerHTML = lancamentos.length ? `<span>${lancamentos.length} lançamento(s)</span><strong>${formatBRL(totalGeral)}</strong>` : '';
+    const countAdv = $('lanc-adv-count');
+    if (countAdv) countAdv.textContent = lancamentos.length ? `${lancamentos.length} registro(s)` : 'Nenhum registro';
 }
 
 function openLancModal() {
     const modal = document.createElement('div'); modal.className = 'modal-overlay';
-    modal.innerHTML = `<div class="modal-card" style="width:340px">
-        <div class="modal-header"><h3>Novo Lançamento</h3><button class="modal-close">&times;</button></div>
+    modal.innerHTML = `<div class="modal-card">
+        <div class="modal-header"><h3><svg class="icon"><use href="#i-file-plus"/></svg> Novo Lançamento</h3><button class="modal-close">&times;</button></div>
         <div class="modal-body">
-            <div class="modal-field"><label>Pasta</label><input type="text" id="lanc-pasta" placeholder="Pasta.0001"></div>
-            <div class="modal-field"><label>Observação</label><input type="text" id="lanc-obs" placeholder="Motivo do lançamento"></div>
-            <div class="modal-field">
+            <div class="modal-row" style="grid-template-columns:1fr 1fr;gap:0.5rem;">
+                <div class="modal-field"><label>Pasta</label><input type="text" id="lanc-pasta" placeholder="Pasta.0001" autofocus></div>
+                <div class="modal-field"><label>Observação</label><input type="text" id="lanc-obs" placeholder="Motivo"></div>
+            </div>
+            <div class="lanc-valores-section">
                 <label>Valores</label>
                 <div id="lanc-vals"></div>
-                <button class="btn-add-row" id="lanc-add-row">+ linha</button>
+                <button class="btn-add-row" id="lanc-add-row">+ Adicionar linha</button>
             </div>
-            <label class="check-sm"><input type="checkbox" id="lanc-nc"> Não cobrar</label>
+            <label class="check-sm"><input type="checkbox" id="lanc-nc"> Não cobrar esta pasta</label>
         </div>
-        <div class="modal-footer"><button class="btn btn-sm btn-primary" id="lanc-save">Salvar</button></div>
+        <div class="modal-footer">
+            <button class="btn btn-sm btn-outline modal-close-btn">Cancelar</button>
+            <button class="btn btn-sm btn-primary" id="lanc-save">Salvar</button>
+        </div>
     </div>`;
     document.body.appendChild(modal);
 
@@ -551,6 +611,8 @@ function openLancModal() {
     addRow('Mensal', '');
     modal.querySelector('#lanc-add-row').onclick = () => addRow();
     modal.querySelector('.modal-close').onclick = () => modal.remove();
+    const closeBtn = modal.querySelector('.modal-close-btn');
+    if (closeBtn) closeBtn.onclick = () => modal.remove();
     modal.onclick = e => { if (e.target === modal) modal.remove(); };
     modal.querySelector('#lanc-nc').onchange = e => { vals.style.opacity = e.target.checked ? 0.3 : 1; vals.style.pointerEvents = e.target.checked ? 'none' : ''; };
     modal.querySelector('#lanc-save').onclick = () => {
@@ -601,7 +663,9 @@ function getDemoBenner() {
         { 'Pasta  (FINS DE ANÁLISE INTERNA)': 'Pasta.0003', 'Área Do Direito': 'Cível', 'Situação (TODOS)': 'Em andamento', 'Natureza': 'Judicial', 'Número Do Processo  (FINS DE ANÁLISE INTERNA)': '1000000-00.2026.0.00.0003', 'Ação': 'Indenizatória', 'Rito (CIVEL)': 'Comum', 'Advogado Interno': 'Luize', 'Empreendimento': 'MANOEL GOMES', 'Spe': 'MANOEL GOMES SPE LTDA', 'Regional': 'Sul', 'Data Do Cadastro (TODOS)': '12/6/2025', 'Tipo De Encerramento': '', 'Objeto Principal (TODOS)': 'INDENIZAÇÃO', 'Resumo': 'Perícia judicial determinada', 'Trava': '' },
         { 'Pasta  (FINS DE ANÁLISE INTERNA)': 'Pasta.0004', 'Área Do Direito': 'Trabalhista', 'Situação (TODOS)': 'Em andamento', 'Natureza': 'Judicial', 'Número Do Processo  (FINS DE ANÁLISE INTERNA)': '1000000-00.2026.0.00.0004', 'Ação': 'Reclamação', 'Rito (CIVEL)': 'Sumaríssimo', 'Advogado Interno': 'Talita', 'Empreendimento': 'GOETE', 'Spe': 'GOETE SPE LTDA', 'Regional': 'Sul', 'Data Do Cadastro (TODOS)': '5/19/2026', 'Tipo De Encerramento': '', 'Objeto Principal (TODOS)': 'VERBAS', 'Resumo': '', 'Trava': '' },
         { 'Pasta  (FINS DE ANÁLISE INTERNA)': 'Pasta.0005', 'Área Do Direito': 'Cível', 'Situação (TODOS)': 'Encerrado', 'Natureza': 'Judicial', 'Número Do Processo  (FINS DE ANÁLISE INTERNA)': '1000000-00.2026.0.00.0005', 'Ação': 'Rescisão', 'Rito (CIVEL)': 'Ordinário', 'Advogado Interno': 'Eduardo', 'Empreendimento': 'FLORENCIO', 'Spe': 'FLORENCIO SPE LTDA', 'Regional': 'Sul', 'Data Do Cadastro (TODOS)': '10/6/2024', 'Data Encerramento (TODOS)': '4/6/2026', 'Tipo De Encerramento': 'Sentença', 'Objeto Principal (TODOS)': 'RESCISÃO', 'Resumo': '', 'Trava': '' },
-        { 'Pasta  (FINS DE ANÁLISE INTERNA)': 'Pasta.0006', 'Área Do Direito': 'Cível', 'Situação (TODOS)': 'Em andamento', 'Natureza': 'Judicial', 'Número Do Processo  (FINS DE ANÁLISE INTERNA)': '1000000-00.2026.0.00.0006', 'Ação': 'Cobrança', 'Rito (CIVEL)': 'Comum', 'Advogado Interno': 'Amanda', 'Empreendimento': 'GOETE', 'Spe': 'GOETE SPE LTDA', 'Regional': 'Sul', 'Data Do Cadastro (TODOS)': '6/6/2024', 'Tipo De Encerramento': '', 'Objeto Principal (TODOS)': 'COBRANÇA', 'Resumo': '', 'Trava': 'Cobrança - Sem Trava' }
+        { 'Pasta  (FINS DE ANÁLISE INTERNA)': 'Pasta.0006', 'Área Do Direito': 'Cível', 'Situação (TODOS)': 'Em andamento', 'Natureza': 'Judicial', 'Número Do Processo  (FINS DE ANÁLISE INTERNA)': '1000000-00.2026.0.00.0006', 'Ação': 'Cobrança', 'Rito (CIVEL)': 'Comum', 'Advogado Interno': 'Amanda', 'Empreendimento': 'GOETE', 'Spe': 'GOETE SPE LTDA', 'Regional': 'Sul', 'Data Do Cadastro (TODOS)': '6/6/2024', 'Tipo De Encerramento': '', 'Objeto Principal (TODOS)': 'COBRANÇA', 'Resumo': '', 'Trava': 'Cobrança - Sem Trava' },
+        { 'Pasta  (FINS DE ANÁLISE INTERNA)': 'Pasta.0012', 'Área Do Direito': 'Cível', 'Situação (TODOS)': 'Encerrado', 'Natureza': 'Judicial', 'Número Do Processo  (FINS DE ANÁLISE INTERNA)': '1000000-00.2026.0.00.0012', 'Ação': 'Indenizatória', 'Rito (CIVEL)': 'Comum', 'Advogado Interno': 'Eduardo', 'Empreendimento': 'GOETE', 'Spe': 'GOETE SPE LTDA', 'Regional': 'Sul', 'Data Do Cadastro (TODOS)': '5/6/2025', 'Tipo De Encerramento': '', 'Objeto Principal (TODOS)': 'Duplicidade - Erro de Cadastro', 'Resumo': '', 'Trava': '' },
+        { 'Pasta  (FINS DE ANÁLISE INTERNA)': 'Pasta.0060', 'Área Do Direito': 'Cível', 'Situação (TODOS)': 'Em andamento', 'Natureza': 'Judicial', 'Número Do Processo  (FINS DE ANÁLISE INTERNA)': '1000000-00.2026.0.00.0060', 'Ação': 'Proposta Apartada', 'Rito (CIVEL)': 'Sumaríssimo', 'Advogado Interno': 'Amanda', 'Empreendimento': 'DONA LAURA', 'Spe': 'DONA LAURA SPE LTDA', 'Regional': 'Sul', 'Data Do Cadastro (TODOS)': '3/6/2026', 'Tipo De Encerramento': '', 'Objeto Principal (TODOS)': 'Proposta Apartada', 'Resumo': '', 'Trava': '' }
     ];
 }
 
