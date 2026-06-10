@@ -18,7 +18,7 @@ const RULES = {
         juizado: { rate: 100, maxMonths: 18, exito: { acordo: 1000, sentenca: 2000 } },
         comum: { rate: 150, maxMonths: 24, maxMonthsPericia: 36, exito: { acordo: 1250, acordoPericia: 1500, sentenca: 3000 } },
         estrategico: { proLabore: 10000, recursoTJ: 5000, recursoSTJ: 10000, agravo: 2500, reversao: 5000, exitoPct: 0.10, exitoMax: 50000 },
-        html: `<div class="rule-card"><div class="rule-name">A) Juizados (JEC)</div><div class="rule-line">Sumaríssimo / Administrativo / Procon</div><div class="rule-line"><strong>R$ 100</strong>/mês · Trava <strong>18m</strong></div><div class="rule-line">Acordo <strong>R$ 1.000</strong> · Sentença <strong>R$ 2.000</strong></div></div><div class="rule-card"><div class="rule-name">B) Comum s/ Perícia</div><div class="rule-line">Ordinário/Comum/Especial</div><div class="rule-line"><strong>R$ 150</strong>/mês · Trava <strong>24m</strong></div><div class="rule-line">Acordo <strong>R$ 1.250</strong> · Sentença <strong>R$ 3.000</strong></div></div><div class="rule-card"><div class="rule-name">B) Comum c/ Perícia</div><div class="rule-line">+ Perícia · Trava <strong>36m</strong></div><div class="rule-line">Acordo <strong>R$ 1.500</strong> · Sentença <strong>R$ 3.000</strong></div></div><div class="rule-card"><div class="rule-name">C) Estratégico</div><div class="rule-line">Agravo <strong>R$ 2.500</strong> · TJ/TRF <strong>R$ 5.000</strong></div><div class="rule-line">STJ <strong>R$ 10.000</strong> · Pró-Labore <strong>R$ 10.000</strong></div></div><div class="rule-card"><div class="rule-name">Exceções</div><div class="rule-line">PR: 12m s/ perícia · 24m c/ perícia</div><div class="rule-line">Cobrança/Sem Trava: R$ 0</div></div>`
+         html: `<div class="rule-card"><div class="rule-name">A) Juizados (JEC) <span class="rule-help" title="Casos de menor complexidade. Detectado automaticamente quando o Rito for Sumaríssimo ou Sumário, ou Ação conter PROCON.">?</span></div><div class="rule-line">Sumaríssimo / Administrativo / Procon</div><div class="rule-line"><strong>R$ 100</strong>/mês · Trava <strong>18m</strong></div><div class="rule-line">Acordo <strong>R$ 1.000</strong> · Sentença <strong>R$ 2.000</strong></div></div><div class="rule-card"><div class="rule-name">B) Comum s/ Perícia <span class="rule-help" title="Casos de rito comum (Ordinário, Comum, Especial) sem perícia. Trava de 24 meses.">?</span></div><div class="rule-line">Ordinário/Comum/Especial</div><div class="rule-line"><strong>R$ 150</strong>/mês · Trava <strong>24m</strong></div><div class="rule-line">Acordo <strong>R$ 1.250</strong> · Sentença <strong>R$ 3.000</strong></div></div><div class="rule-card"><div class="rule-name">B) Comum c/ Perícia <span class="rule-help" title="Casos comuns que possuem perícia judicial. Detectado quando Objeto ou Resumo contém 'perícia', 'pericial' ou 'perito'. Trava estendida para 36 meses.">?</span></div><div class="rule-line">+ Perícia · Trava <strong>36m</strong></div><div class="rule-line">Acordo <strong>R$ 1.500</strong> · Sentença <strong>R$ 3.000</strong></div></div><div class="rule-card"><div class="rule-name">C) Estratégico <span class="rule-help" title="Casos estratégicos com cobrança por evento. Atualmente só pode ser ativado via edição manual ou planilha complementar.">?</span></div><div class="rule-line">Agravo <strong>R$ 2.500</strong> · TJ/TRF <strong>R$ 5.000</strong></div><div class="rule-line">STJ <strong>R$ 10.000</strong> · Pró-Labore <strong>R$ 10.000</strong></div></div><div class="rule-card"><div class="rule-name">Exceções <span class="rule-help" title="PR: travas reduzidas (12m sem perícia, 24m com). Cobrança e Sem Trava: valor R$ 0 (não faturado). Proposta Apartada: valor R$ 0.">?</span></div><div class="rule-line">PR: 12m s/ perícia · 24m c/ perícia</div><div class="rule-line">Cobrança/Sem Trava: R$ 0</div></div>`
     },
     trabalhista: { label: 'Trabalhista', areaMatch: ['trabalhista'], html: '<div class="rule-card"><div class="rule-name">Trabalhista</div><div class="rule-line" style="color:var(--text-muted)">Regras a definir</div></div>' },
     tributario: { label: 'Tributário', areaMatch: ['tributario'], html: '<div class="rule-card"><div class="rule-name">Tributário</div><div class="rule-line" style="color:var(--text-muted)">Regras a definir</div></div>' }
@@ -28,6 +28,7 @@ const RULES = {
 function init() {
     try {
         loadLancamentos();
+        loadEdits();
         initMonthSelector();
         setupEvents();
         checkAuth();
@@ -152,6 +153,9 @@ function downloadExcel(wb, fn) {
     try { const buf = XLSX.write(wb, { bookType: 'xlsx', type: 'array' }); const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = fn; document.body.appendChild(a); a.click(); document.body.removeChild(a); setTimeout(() => URL.revokeObjectURL(url), 1000); showToast('info', `Download: ${fn}`); } catch (e) { showToast('error', e.message); }
 }
 
+function showLoading() { const bar = $('loading-bar'); if (bar) bar.classList.add('active'); }
+function hideLoading() { const bar = $('loading-bar'); if (bar) bar.classList.remove('active'); }
+
 function readExcel(ab) {
     const wb = XLSX.read(new Uint8Array(ab), { type: 'array', raw: false });
     const ws = wb.Sheets[wb.SheetNames[0]]; const raw = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
@@ -174,7 +178,7 @@ function handleFileUpload(file, source) {
             } else {
                 complementarData = data; $('card-compl').classList.add('success'); $('info-compl').querySelector('.file-name').textContent = file.name;
             }
-            if (currentSector) processAndReconcile();
+            if (currentSector) { showLoading(); processAndReconcile(); hideLoading(); }
             showToast('success', `${file.name}: ${data.length} linhas`);
         } catch (err) { showToast('error', err.message); }
     };
@@ -533,14 +537,18 @@ function openEditModal(pasta) {
         if (cls) ne.classificacao = cls; if (obs) ne.obs = obs; if (bonus > 0) ne.bonus = bonus;
         if (trava) ne.trava = trava; if (nc) ne.naoCobrar = true;
         if (cls || obs || bonus || trava || nc) edits[pasta] = ne; else delete edits[pasta];
+        saveEdits();
         modal.remove(); processAndReconcile(); showToast('success', `${pasta} atualizado`);
     });
-    modal.querySelector('#edit-reset').addEventListener('click', () => { delete edits[pasta]; modal.remove(); processAndReconcile(); showToast('info', `${pasta} resetado`); });
+    modal.querySelector('#edit-reset').addEventListener('click', () => { delete edits[pasta]; saveEdits(); modal.remove(); processAndReconcile(); showToast('info', `${pasta} resetado`); });
 }
 
 // ==================== LANÇAMENTOS ====================
 function loadLancamentos() { try { lancamentos = JSON.parse(localStorage.getItem('lancamentos') || '[]'); } catch { lancamentos = []; } }
 function saveLancamentos() { localStorage.setItem('lancamentos', JSON.stringify(lancamentos)); renderLancamentos(); }
+
+function loadEdits() { try { edits = JSON.parse(localStorage.getItem('edits') || '{}'); } catch { edits = {}; } }
+function saveEdits() { localStorage.setItem('edits', JSON.stringify(edits)); }
 
 function renderLancamentos() {
     const totalGeral = lancamentos.reduce((a, l) => {

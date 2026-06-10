@@ -84,6 +84,23 @@ header h1 .icon { stroke: #3b82f6; } header p { color: var(--text-secondary); fo
 .sector-btn:hover { color: var(--text-primary); border-color: var(--accent); } .sector-btn.active { background: var(--accent); color: white; border-color: var(--accent); }
 .rule-card { padding: 0.3rem 0; border-bottom: 1px solid var(--border); } .rule-card:last-child { border-bottom: none; }
 .rule-name { font-size: 0.65rem; font-weight: 700; color: var(--accent); margin-bottom: 0.1rem; }
+.rule-help {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: rgba(148,163,184,0.2);
+    color: var(--text-muted);
+    font-size: 0.5rem;
+    font-weight: 700;
+    cursor: help;
+    vertical-align: middle;
+    margin-left: 3px;
+    transition: all 0.1s;
+}
+.rule-help:hover { background: var(--accent); color: #fff; }
 .rule-line { font-size: 0.58rem; color: var(--text-secondary); line-height: 1.4; } .rule-line strong { color: var(--text-primary); font-weight: 600; }
 .month-select { width: 100%; background: var(--bg-primary); border: 1px solid var(--border-light); color: var(--text-primary); padding: 0.2rem 0.35rem; border-radius: var(--radius-sm); font-size: 0.68rem; }
 .month-select:focus { outline: none; border-color: var(--accent); }
@@ -126,6 +143,30 @@ header h1 .icon { stroke: #3b82f6; } header p { color: var(--text-secondary); fo
     overflow: auto;
     border: 1px solid var(--border);
     border-radius: var(--radius-sm);
+    position: relative;
+}
+
+.loading-bar {
+    display: none;
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    z-index: 20;
+    background: var(--bg-primary);
+    overflow: hidden;
+}
+.loading-bar.active { display: block; }
+.loading-bar-inner {
+    height: 100%;
+    width: 30%;
+    background: linear-gradient(90deg, transparent, var(--accent), transparent);
+    animation: loading-slide 1.2s ease-in-out infinite;
+}
+@keyframes loading-slide {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(400%); }
 }
 
 table { width: 100%; border-collapse: collapse; font-size: 0.7rem; text-align: left; }
